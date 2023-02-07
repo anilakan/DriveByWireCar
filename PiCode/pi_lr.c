@@ -60,11 +60,7 @@
 
 #define COLLISION_ITER 20
 
-// do the thresholds for left and right turn 
-// run safe exit!
 
-// do the thresholds for left and right turn 
-// run safe exit!
 struct shmseg {
    int cnt;
    int complete;
@@ -266,7 +262,6 @@ void *receive_position(void *args){
         
             pthread_mutex_lock(&(control_state->mux_blink));
 
-            // should we be blinking?
             if (state.rgbButtons[5] > 0) { // Left
                 switch(control_state->left_trig_state) {
                     case BLINK_0:
@@ -371,13 +366,10 @@ void *receive_position(void *args){
             pthread_mutex_unlock(&(control_state->mux_pos));
         }
         if (digitalRead(RESET_BUTTON)) {
-            // button is being pressed, where should it go? 
             if (control_state->reset_button_state == BUTTON_0) {
                 control_state->reset_button_state = BUTTON_1; // being held down once
                 if (control_state->collision == 1 ) {
-                    // you need to remove obstacle before pressing button
-                    // otherwise there would be a race condition 
-                    // but i don't feel like writing in MORE mutexes right now lol
+
                     control_state->collision = 0;
                 }
                 else {
@@ -398,7 +390,6 @@ void *receive_position(void *args){
 
 
 void *send_can(void *args) {
-    //make this periodic 
     receive_position_info_t *send_args = (receive_position_info_t *)args;
     control_state_t *control_state = send_args->control_state;
     int s = send_args->s;
@@ -411,7 +402,6 @@ void *send_can(void *args) {
     periodic_task_init(&pinfo, 20000000); // Period 20ms
 
     while (1) {
-        // might need to lock this guy
         if (control_state->enabled){
             pthread_mutex_lock(&(control_state->mux_pos));
             frame.data[0] = control_state->brake_pos;
@@ -469,13 +459,9 @@ void *receive_can(void *args) {
                 // received a front zone one: 
                 if (frame.can_id == 0x200) {
 
-                    // front zone, 
-                    // save force value and
+
                     pthread_mutex_lock(&(control_state->mux_servo));
-                    //control_state->servo_current = ((uint16_t)frame.data[0] << 8) & frame.data[1];
-                    //printf("(%ld) frame: %u %u %u %u %u %u  %u %u \n", time_ms(), frame.data[0], frame.data[1], frame.data[2], frame.data[3], frame.data[4], frame.data[5], frame.data[6], frame.data[7]);
                     control_state->servo_current = (uint16_t)frame.data[1];
-                    //printf("control state: %u \n", control_state->servo_current);
                     control_state->servo_pos = ((uint16_t)frame.data[2] << 8) & frame.data[1];
                     pthread_mutex_unlock(&(control_state->mux_servo));
                     // increment heartbeat
@@ -508,7 +494,6 @@ void *collision_detection(void *args) {
     struct period_info pinfo;
     periodic_task_init(&pinfo, 30000000); //10 ms period
 
-    // lol could probably make this a better cast but whatever
     int right, left;
     int iter, iter10, iter20_l, iter20_r;
     while (shmp_r->complete != 1) {
@@ -553,8 +538,7 @@ void *collision_detection(void *args) {
             printf("COLLISION 10: (%ld): r = %d, l = %d \n", time_ms(), right, left);
         } 
       else if (!(control_state->collision ==1 ) && coll_20_left) {
-            // okay to else if because we assume only 1 collision in our scope
-            
+
             iter = 0;
             iter10 = 0;
             iter20_l++;
@@ -661,7 +645,7 @@ pid_t pid_right, pid_left, pid_front;
 
 
 void sigint_handler(int signum){
-    // forward sigint, could use gpid but lol
+    // forward sigint, could use gpid
     kill(pid_right, SIGINT);
     kill(pid_left, SIGINT);
 
@@ -719,7 +703,6 @@ int main()
     //system("sudo ip link set can0 up type can bitrate %d", BITRATE);
     system("sudo ip link set can0 up type can bitrate 500000");
     system("sudo ifconfig can0 txqueuelen 65536");
-    // probably want to write a check here to make sure that can0 was down and you're not getting one of those weird errors
     printf("pi is connected to can0\r\n");
 
     //1. Create Socket for CAN
@@ -842,7 +825,7 @@ int main()
             control_state->front_enabled = 0;
         }
         if (time_ms() - control_state->heartbeat_rear > HEARTBEAT_TO) {
-            //control_state->rear_enabled = 0;
+            control_state->rear_enabled = 0;
         }
     }
 }

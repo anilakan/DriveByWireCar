@@ -49,8 +49,6 @@
 #define LEFT_STEER_THRESHOLD 40
 #define RIGHT_STEER_THRESHOLD 60
 
-// do the thresholds for left and right turn 
-// run safe exit!
 struct shmseg {
    int cnt;
    int complete;
@@ -383,8 +381,6 @@ void *receive_can(void *args) {
                 // received a front zone one: 
                 if (frame.can_id == 0x200) {
 
-                    // front zone, 
-                    // save force value and
                     pthread_mutex_lock(&(control_state->mux_servo));
                     control_state->servo_current = ((uint16_t)frame.data[0] << 8) & frame.data[1];
                     control_state->servo_pos = ((uint16_t)frame.data[2] << 8) & frame.data[1];
@@ -419,7 +415,6 @@ void *collision_detection() {
     struct period_info pinfo;
     periodic_task_init(&pinfo, 10000000); //10 ms period
 
-    // lol could probably make this a better cast but whatever
     while (shmp_r->complete != 1) {
         if (shmp_r->cnt == -1) {
             perror("read");
@@ -476,7 +471,6 @@ void sigint_handler(int signum){
 int main()
 {
     // first set up CAN
-    // handler for control C to call cleanup
     signal(SIGINT, sigint_handler);
     pid_right = fork();
     pid_left = fork();
@@ -660,7 +654,6 @@ int main()
         long count = time_ms() - control_state->heartbeat_front;
         if (count > HEARTBEAT_TO) {
             control_state->front_enabled = 0;
-            //printf("flipped front_enabled\n");
         }
 
         //keep checking the heartbeats and update enabled or disabled? 

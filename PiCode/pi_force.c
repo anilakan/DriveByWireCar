@@ -221,24 +221,7 @@ void *send_force(void *args) {
     }
 
     while (1) { 
-        //force = 0;
         usleep(TX_INTERVAL_MS * 100);
-        // if (control_state->front_enabled == 0){
-        //     force = 0;
-        // } else {
-        // // printf("Send force %d\n", force);
-        //     force  = control_state->servo_current;
-        //     if (force > 127){
-        //         force = 127;
-        //     }
-        //     int force_direction;
-        //     if (control_state->steering_pos < 50){
-        //         force_direction = -1;
-        //     }
-        //     else force_direction = 1;
-        //     force *= force_direction;
-        // }
-        //force += 5;
         force = control_state->servo_current;
         if (control_state->enabled && !(control_state->collision)) { 
             printf("froce: %d\n", force);
@@ -258,7 +241,6 @@ void *receive_position(void *args){
     int sockfd = receive_args->sockfd;
     struct sockaddr_in servaddr = receive_args->servaddr;
     control_state_t *control_state = receive_args->control_state;
-    // need: sockfd,  servaddr, control_state
     while(1) {
         if (control_state->enabled && !(control_state->collision)){
             int n, len;
@@ -281,7 +263,6 @@ void *receive_position(void *args){
         
             pthread_mutex_lock(&(control_state->mux_blink));
 
-            // should we be blinking?
             if (state.rgbButtons[5] > 0) { // Left
                 switch(control_state->left_trig_state) {
                     case BLINK_0:
@@ -391,8 +372,6 @@ void *receive_position(void *args){
                 control_state->reset_button_state = BUTTON_1; // being held down once
                 if (control_state->collision == 1 ) {
                     // you need to remove obstacle before pressing button
-                    // otherwise there would be a race condition 
-                    // but i don't feel like writing in MORE mutexes right now lol
                     control_state->collision = 0;
                 }
                 else {
@@ -523,7 +502,6 @@ void *collision_detection(void *args) {
     struct period_info pinfo;
     periodic_task_init(&pinfo, 30000000); //10 ms period
 
-    // lol could probably make this a better cast but whatever
     int right, left, front;
     int right_iter, left_iter, front_iter, iter;
     while (shmp_r->complete != 1) {
@@ -659,19 +637,7 @@ void sigint_handler(int signum){
 }
 int main()
 {
-    //signal(SIGINT, sigint_handler);
-    // pid_right = fork();
-    // pid_left = fork();
-    // pid_front = fork();
-    // if (pid_right == 0){
-    //     execlp("python3", "python3", "ultra.py", "RIGHT", NULL);
-    // }
-    // if (pid_left == 0){
-    //     execlp("python3", "python3", "ultra.py", "LEFT", NULL);
-    // }
-    // if (pid_front == 0){
-    //     execlp("python3", "python3", "ultra.py", "FRONT", NULL);
-    // }
+
 
     int ret;
     int nbytes;
@@ -801,42 +767,7 @@ int main()
         perror("Shared memory");
         return 1;
     }
-    
-    // Attach to the segment to get a pointer to it.
-    // shmp_r = shmat(shmid_r, NULL, 0);
-    // if (shmp_r == (void *) -1) {
-    //     perror("Shared memory attach");
-    //     return 1;
-    // }
-
-    // shmid_l = shmget(SHM_KEY_LEFT, sizeof(struct shmseg), 0644|IPC_CREAT);
-    // if (shmid_l == -1) {
-    //     perror("Shared memory");
-    //     return 1;
-    // }
-    
-    // // Attach to the segment to get a pointer to it.
-    // shmp_l = shmat(shmid_l, NULL, 0);
-    // if (shmp_l == (void *) -1) {
-    //     perror("Shared memory attach");
-    //     return 1;
-    // }
-    
-    // shmid_f = shmget(SHM_KEY_FRONT, sizeof(struct shmseg), 0644|IPC_CREAT);
-    // if (shmid_f == -1) {
-    //     perror("Shared memory");
-    //     return 1;
-    // }
-    
-    // // Attach to the segment to get a pointer to it.
-    // shmp_f = shmat(shmid_f, NULL, 0);
-    // if (shmp_f == (void *) -1) {
-    //     perror("Shared memory attach");
-    //     return 1;
-    // }
-
-    pthread_t collision_tid;
-    //pthread_create(&collision_tid, NULL, collision_detection, (void *)control_state);
+ 
 
     while(1){
         long count = time_ms() - control_state->heartbeat_front;
@@ -844,7 +775,7 @@ int main()
             control_state->front_enabled = 0;
         }
         if (time_ms() - control_state->heartbeat_rear > HEARTBEAT_TO) {
-            //control_state->rear_enabled = 0;
+            control_state->rear_enabled = 0;
         }
     }
 }

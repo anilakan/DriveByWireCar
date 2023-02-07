@@ -60,11 +60,6 @@
 
 #define COLLISION_ITER 40
 
-// do the thresholds for left and right turn 
-// run safe exit!
-
-// do the thresholds for left and right turn 
-// run safe exit!
 struct shmseg {
    int cnt;
    int complete;
@@ -97,10 +92,8 @@ struct period_info {
 
 
 uint8_t map_throttle(int raw_throttle) {
-    // divide
     int temp = (raw_throttle * 50)/MAX_RANGE;
     temp += 50;
-   // printf("raw: %d, mapped: %d\n", raw_throttle, temp);
     return (uint8_t)(100-temp);
     //output between 0-100
 }
@@ -108,15 +101,12 @@ uint8_t map_throttle(int raw_throttle) {
 uint8_t map_brake(int raw_brake) { 
     raw_brake -= 20000;
     if (raw_brake < 0) {
-       // printf("raw: %d, mapped: %d\n", raw_brake, 0);
         return (uint8_t)100;
     }
     int temp = (raw_brake * 100)/ 12767;
-    //printf("%d\n", temp);
-    //printf("raw: %d, mapped: %d\n", raw_brake, temp);
+
     return (uint8_t)(100-temp);
     //output between 0-100
-
 }
 
 uint8_t map_steering(int raw_steering){
@@ -363,13 +353,10 @@ void *receive_position(void *args){
             pthread_mutex_unlock(&(control_state->mux_pos));
         }
         if (digitalRead(RESET_BUTTON)) {
-            // button is being pressed, where should it go? 
             if (control_state->reset_button_state == BUTTON_0) {
                 control_state->reset_button_state = BUTTON_1; // being held down once
                 if (control_state->collision == 1 ) {
-                    // you need to remove obstacle before pressing button
-                    // otherwise there would be a race condition 
-                    // but i don't feel like writing in MORE mutexes right now lol
+
                     control_state->collision = 0;
                 }
                 else {
@@ -497,7 +484,6 @@ void *collision_detection(void *args) {
     struct period_info pinfo;
     periodic_task_init(&pinfo, 30000000); //10 ms period
 
-    // lol could probably make this a better cast but whatever
     int right, left, front;
     int right_iter, left_iter, front_iter, iter;
     while (shmp_r->complete != 1) {
@@ -623,7 +609,7 @@ pid_t pid_right, pid_left, pid_front;
 
 
 void sigint_handler(int signum){
-    // forward sigint, could use gpid but lol
+    // forward sigint, could use gpid 
     kill(pid_right, SIGINT);
     kill(pid_left, SIGINT);
     kill(pid_front, SIGINT);
@@ -820,7 +806,7 @@ int main()
             control_state->front_enabled = 0;
         }
         if (time_ms() - control_state->heartbeat_rear > HEARTBEAT_TO) {
-            //control_state->rear_enabled = 0;
+            control_state->rear_enabled = 0;
         }
     }
 }

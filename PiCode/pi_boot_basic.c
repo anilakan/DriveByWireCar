@@ -80,13 +80,11 @@ long old_rounded = 0;
 long time_ms(){
     struct timespec spec;
     clock_gettime(CLOCK_MONOTONIC, &spec);
-    //printf("spec: %ld\n", spec.tv_nsec);
     long rounded = spec.tv_sec*1000 + round(spec.tv_nsec/1.0e6);
     if (rounded >= old_rounded) { 
         old_rounded = rounded;
     }
     else { printf("ERROR: decreased. new: %ld, old: %ld\n", rounded, old_rounded);}
-    //printf("rounded: %ld\n", rounded);
     return rounded;
 }
 
@@ -228,7 +226,6 @@ void *send_force(void *args) {
         }
         force = 0;
         if (control_state->enabled && !(control_state->collision)) { 
-            //: %d\n", force);
             sendto(sockfd, (char*) &force, 1, MSG_CONFIRM,
                 (struct sockaddr *) &servaddr, sizeof(servaddr));
         }  
@@ -245,7 +242,6 @@ void *receive_position(void *args){
     int sockfd = receive_args->sockfd;
     struct sockaddr_in servaddr = receive_args->servaddr;
     control_state_t *control_state = receive_args->control_state;
-    // need: sockfd,  servaddr, control_state
     while(1) {
         if (control_state->enabled && !(control_state->collision)){
             int n, len;
@@ -268,7 +264,6 @@ void *receive_position(void *args){
         
             pthread_mutex_lock(&(control_state->mux_blink));
 
-            // should we be blinking?
             if (state.rgbButtons[5] > 0) { // Left
                 switch(control_state->left_trig_state) {
                     case BLINK_0:
@@ -379,7 +374,6 @@ void *receive_position(void *args){
                 if (control_state->collision == 1 ) {
                     // you need to remove obstacle before pressing button
                     // otherwise there would be a race condition 
-                    // but i don't feel like writing in MORE mutexes right now lol
                     control_state->collision = 0;
                 }
                 else {
@@ -474,7 +468,6 @@ void *receive_can(void *args) {
                     // front zone, 
                     // save force value and
                     pthread_mutex_lock(&(control_state->mux_servo));
-                    //control_state->servo_current = ((uint16_t)frame.data[0] << 8) & frame.data[1];
                     printf("(%ld) frame: %u %u %u %u %u %u  %u %u \n", time_ms(), frame.data[0], frame.data[1], frame.data[2], frame.data[3], frame.data[4], frame.data[5], frame.data[6], frame.data[7]);
                     control_state->servo_current = (uint16_t)frame.data[1];
                     printf("control state: %u \n", control_state->servo_current);
@@ -510,7 +503,6 @@ void *collision_detection(void *args) {
     struct period_info pinfo;
     periodic_task_init(&pinfo, 30000000); //10 ms period
 
-    // lol could probably make this a better cast but whatever
     int right, left, front;
     int right_iter, left_iter, front_iter, iter;
     while (shmp_r->complete != 1) {
@@ -554,7 +546,6 @@ void *collision_detection(void *args) {
 
 
         } else if (coll_20_left) {
-            // okay to else if because we assume only 1 collision in our scope
             control_state->collision = 2;
 
             pthread_mutex_lock(&(control_state->mux_blink));
@@ -646,20 +637,6 @@ void sigint_handler(int signum){
 }
 int main()
 {
-    //signal(SIGINT, sigint_handler);
-    // pid_right = fork();
-    // pid_left = fork();
-    // pid_front = fork();
-    // if (pid_right == 0){
-    //     execlp("python3", "python3", "ultra.py", "RIGHT", NULL);
-    // }
-    // if (pid_left == 0){
-    //     execlp("python3", "python3", "ultra.py", "LEFT", NULL);
-    // }
-    // if (pid_front == 0){
-    //     execlp("python3", "python3", "ultra.py", "FRONT", NULL);
-    // }
-
     int ret;
     int nbytes;
     struct sockaddr_can addr;
@@ -696,7 +673,6 @@ int main()
     //system("sudo ip link set can0 up type can bitrate %d", BITRATE);
     system("sudo ip link set can0 up type can bitrate 500000");
     system("sudo ifconfig can0 txqueuelen 65536");
-    // probably want to write a check here to make sure that can0 was down and you're not getting one of those weird errors
     printf("pi is connected to can0\r\n");
 
     //1. Create Socket for CAN
@@ -788,42 +764,7 @@ int main()
         perror("Shared memory");
         return 1;
     }
-    
-    // Attach to the segment to get a pointer to it.
-    // shmp_r = shmat(shmid_r, NULL, 0);
-    // if (shmp_r == (void *) -1) {
-    //     perror("Shared memory attach");
-    //     return 1;
-    // }
 
-    // shmid_l = shmget(SHM_KEY_LEFT, sizeof(struct shmseg), 0644|IPC_CREAT);
-    // if (shmid_l == -1) {
-    //     perror("Shared memory");
-    //     return 1;
-    // }
-    
-    // // Attach to the segment to get a pointer to it.
-    // shmp_l = shmat(shmid_l, NULL, 0);
-    // if (shmp_l == (void *) -1) {
-    //     perror("Shared memory attach");
-    //     return 1;
-    // }
-    
-    // shmid_f = shmget(SHM_KEY_FRONT, sizeof(struct shmseg), 0644|IPC_CREAT);
-    // if (shmid_f == -1) {
-    //     perror("Shared memory");
-    //     return 1;
-    // }
-    
-    // // Attach to the segment to get a pointer to it.
-    // shmp_f = shmat(shmid_f, NULL, 0);
-    // if (shmp_f == (void *) -1) {
-    //     perror("Shared memory attach");
-    //     return 1;
-    // }
-
-    pthread_t collision_tid;
-    //pthread_create(&collision_tid, NULL, collision_detection, (void *)control_state);
 
     while(1){
         long count = time_ms() - control_state->heartbeat_front;
@@ -831,7 +772,7 @@ int main()
             control_state->front_enabled = 0;
         }
         if (time_ms() - control_state->heartbeat_rear > HEARTBEAT_TO) {
-            //control_state->rear_enabled = 0;
+            control_state->rear_enabled = 0;
         }
     }
 }
